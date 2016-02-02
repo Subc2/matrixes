@@ -1,5 +1,5 @@
 /* matrixes - simplifies matrixes and solves systems of linear equations
- * Copyright (C) 2015 Paweł Zacharek
+ * Copyright (C) 2015-2016 Paweł Zacharek
  * 
  * -----------------------------------------------------------------------
  * This program is free software; you can redistribute it and/or modify
@@ -17,7 +17,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  * -----------------------------------------------------------------------
  * 
- * date: 2015-11-05
+ * date: 2016-02-02
  * compiling: gcc -std=gnu11 -o matrixes.elf matrixes.c
  */
 
@@ -27,6 +27,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#define INT_BIT (CHAR_BIT * sizeof(int))
+#define MAX_PRIME USHRT_MAX
 
 typedef struct {
 	int numerator;
@@ -37,16 +41,23 @@ int *prime_numbers = NULL;
 
 void initialize_prime_numbers(void)
 {
-	prime_numbers = (int *)malloc((USHRT_MAX + 1) * sizeof(int));
-	for (int i = 0; i <= USHRT_MAX; ++i)
-		prime_numbers[i] = i;
-	prime_numbers[0] = prime_numbers[1] = 0;
-	for (int i = 2; i <= USHRT_MAX; ++i)
-		for (int j = 2 * i; j <= USHRT_MAX; j += i)
-			prime_numbers[j] = 0;
-	for (int i = 0, j = 0; i <= USHRT_MAX; ++i)
-		if (prime_numbers[i] != 0)
-			prime_numbers[j++] = prime_numbers[i];
+	const int sieve_size = ((MAX_PRIME + 1) * sizeof(int) + (INT_BIT - 1)) / INT_BIT;
+	int number_of_primes = 0;
+	int *sieve = malloc(sieve_size);
+	memset(sieve, '\xff', sieve_size);  // sets primality bit for all numbers
+	sieve[0] &= ~((1 << 0) | (1 << 1));  // 0 and 1 aren't primes
+	for (int i = 2; i < MAX_PRIME + 1; ++i)
+		if (sieve[i / INT_BIT] & (1 << i % INT_BIT)) {  // 'i' is a prime number
+			for (int j = 2 * i; j < MAX_PRIME + 1; j += i)  // 'i' multiples aren't primes
+				sieve[j / INT_BIT] &= ~(1 << (j % INT_BIT));  // removes primality bit
+			++number_of_primes;
+		}
+	prime_numbers = (int *)malloc((number_of_primes + 1) * sizeof(int));
+	for (int i = 0, j = 0; j < number_of_primes; ++i)
+		if (sieve[i / INT_BIT] & (1 << (i % INT_BIT)))
+			prime_numbers[j++] = i;
+	prime_numbers[number_of_primes] = 0;
+	free(sieve);
 	return;
 }
 
